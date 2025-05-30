@@ -1,0 +1,489 @@
+---
+title: "Project_Shatakshi Shewale"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+date: "2025-03-03"
+---
+
+```{r}
+
+######## Part 1 #############
+
+setwd("/Users/shatakshishewale/Desktop/Applications/interviews/Final project")  # Manually set the working directory
+
+# Verify it has been set correctly
+getwd()
+
+set.seed(2024)  # Set seed
+
+# Load the datasets
+bm1 <- readRDS("BoneMarrow_dataset1.rds")
+bm2 <- readRDS("BoneMarrow_dataset2.rds")
+
+dim(bm1)
+dim(bm2)
+
+#summary(bm1)
+#summary(bm2)
+
+```
+
+
+```{r}
+set.seed(2024)  # Set seed
+
+library(Seurat)
+
+bm1 <- CreateSeuratObject(
+    counts = bm1, 
+    project = "BoneMarrow1",
+    min.cells = 3,  # Removes genes detected in fewer than 3 cells
+    min.features = 200  # Cells with at least 200 genes detected
+)
+
+bm2 <- CreateSeuratObject(
+    counts = bm2, 
+    project = "BoneMarrow2",
+    min.cells = 3,
+    min.features = 200
+)
+
+# Check Seurat object structure
+bm1
+bm2
+
+```
+
+
+```{r}
+set.seed(2024)  # Set seed
+
+# Add mitochondrial gene percentage
+bm1[["percent.mt"]] <- PercentageFeatureSet(bm1, pattern = "^MT-")
+bm2[["percent.mt"]] <- PercentageFeatureSet(bm2, pattern = "^MT-")
+
+# Visualize QC metrics
+VlnPlot(bm1, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+# Visualize QC metrics
+VlnPlot(bm2, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+# Filter cells (adjust thresholds based on QC)
+bm1 <- subset(bm1, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 &  nCount_RNA < 30000)
+bm2 <- subset(bm2, subset = nFeature_RNA > 200 & nFeature_RNA < 4000 &  nCount_RNA < 30000)
+
+# Check dimensions after filtering
+dim(bm1)
+dim(bm2)
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+# run sctransform
+bm1 <- SCTransform(bm1, vars.to.regress = "nCount_RNA", verbose = FALSE)
+bm2 <- SCTransform(bm2, vars.to.regress = "nCount_RNA", verbose = FALSE)
+
+# run PCA
+bm1 <- RunPCA(bm1,  verbose = FALSE)
+bm2 <- RunPCA(bm2,  verbose = FALSE)
+
+ElbowPlot(bm1, ndims = 50)
+ElbowPlot(bm2, ndims = 50)
+
+# run UMAP
+bm1 <- RunUMAP(bm1, dims = 1:30,  verbose = FALSE)
+bm2 <- RunUMAP(bm2, dims = 1:30,  verbose = FALSE)
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+bm1 <- FindNeighbors(bm1, dims = 1:30)
+bm2 <- FindNeighbors(bm2, dims = 1:30)
+
+bm1 <- FindClusters(bm1, resolution = 1.5, algorithm = 4)
+bm2 <- FindClusters(bm2, resolution = 1.5, algorithm = 4)
+
+DimPlot(bm1, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
+DimPlot(bm2, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
+
+```
+
+
+```{r}
+# Set seed for reproducibility
+set.seed(2024)
+
+# Load necessary libraries
+library(Seurat)
+library(ggplot2)
+
+# Define marker genes with their corresponding Ensembl IDs
+cell_type_markers <- unique(c(
+  "ENSG00000170458",  # CD14 (Classical monocyte cell & Macrophage cell)
+  "ENSG00000168329",  # CX3CR1 (Non-classical monocyte cell)
+  "ENSG00000198178", "ENSG00000099250",  # CLEC4C, NRP1 (Plasmacytoid dendritic cell)
+  "ENSG00000114013",  # CD86 (Dendritic cell)
+  "ENSG00000100721", "ENSG00000128218",  # TCL1A, VPREB3 (Precursor B cell)
+  "ENSG00000153064",  # BANK1 (Memory B cell)
+  "ENSG00000105369",  # CD79A (Naive B cell)
+  "ENSG00000137441",  # FGFBP2 (CD16 natural killer cell)
+  "ENSG00000168685",  # IL7R (Natural killer cell)
+  "ENSG00000137801",  # THBS1 (Megakaryocyte)
+  "ENSG00000145708", "ENSG00000170891", "ENSG00000128040",  # CRHBP, CYTL1, SPINK2 (Myeloid progenitor)
+  "ENSG00000174059",  # CD34 (Hematopoietic stem cell)
+  "ENSG00000172116", "ENSG00000256039", "ENSG00000142546",  # CD8B, LINC02446, NOSIP (CD8 T cell)
+  "ENSG00000163600",  # ICOS (Regulatory T cell)
+  "ENSG00000113088"   # GZMK (Mucosal-associated invariant T cell)
+))
+
+# List of datasets
+datasets <- list("bm1" = bm1, "bm2" = bm2)
+
+# Generate and save combined dot plots for each dataset
+for (dataset_name in names(datasets)) {
+  dataset <- datasets[[dataset_name]]
+  
+  # Generate single dot plot for all marker genes
+  plot <- DotPlot(dataset, features = cell_type_markers, group.by = "seurat_clusters") +
+    ggtitle(paste("Combined Dot Plot -", dataset_name)) +
+    RotatedAxis()
+  
+  # Save the plot as a single image file
+  ggsave(filename = paste0(dataset_name, "_combined_dotplot.png"),
+         plot = plot, width = 10, height = 8, dpi = 300)
+}
+
+
+```
+
+
+```{r}
+# Set seed for reproducibility
+set.seed(2024)    
+
+# Load necessary libraries
+library(Seurat)
+library(ggplot2)
+
+# Define marker genes with their corresponding Ensembl IDs (No duplicates)
+cell_type_markers <- unique(c(
+  "ENSG00000170458",  # CD14 (Classical monocyte cell & Macrophage cell)
+  "ENSG00000168329",  # CX3CR1 (Non-classical monocyte cell)
+  "ENSG00000198178", "ENSG00000099250",  # CLEC4C, NRP1 (Plasmacytoid dendritic cell)
+  "ENSG00000114013",  # CD86 (Dendritic cell)
+  "ENSG00000100721", "ENSG00000128218",  # TCL1A, VPREB3 (Precursor B cell)
+  "ENSG00000153064",  # BANK1 (Memory B cell)
+  "ENSG00000105369", # CD79A  (Naive B cell)
+  "ENSG00000137441",  # FGFBP2 (CD16 natural killer cell)
+  "ENSG00000137801",  # THBS1 (Megakaryocyte)
+  "ENSG00000145708", "ENSG00000170891", "ENSG00000128040",  # CRHBP, CYTL1, SPINK2 (Myeloid progenitor)
+  "ENSG00000135218",  # CD36 (Erythroid progenitor)
+  "ENSG00000174059",  # CD34 (Hematopoietic stem cell)
+  "ENSG00000172116", "ENSG00000256039", "ENSG00000142546",  # CD8B, LINC02446, NOSIP (CD8 T cell)
+  "ENSG00000163600",  # ICOS (Regulatory T cell)
+  "ENSG00000113088", "ENSG00000111796"   # GZMK , KLRB1 (Mucosal-associated invariant T cell)
+))
+
+# Subset clusters
+bm1_clusters <- c(1, 4, 9, 12,10,2,13,15,17,11,5,14)
+bm2_clusters <- c(3, 9,12,13,16,15,2,5,1,14,6)
+
+# Subset the data for the selected clusters
+bm1_subset <- subset(bm1, idents = bm1_clusters)
+bm2_subset <- subset(bm2, idents = bm2_clusters)
+
+# Re-cluster using FindClusters after subsetting
+bm1_subset <- FindClusters(bm1_subset, resolution = 1.0, algorithm = 4)
+bm2_subset <- FindClusters(bm2_subset, resolution = 1.0, algorithm = 4)
+
+# Plot UMAP for verification
+DimPlot(bm1_subset, reduction = "umap", label = TRUE) + ggtitle("BM1 Subset Clustering")
+DimPlot(bm2_subset, reduction = "umap", label = TRUE) + ggtitle("BM2 Subset Clustering")
+
+# Generate and save dot plots for bm1 and bm2
+datasets <- list("bm1_subset" = bm1_subset, "bm2_subset" = bm2_subset)
+
+for (dataset_name in names(datasets)) {
+  dataset <- datasets[[dataset_name]]
+  
+  # Generate dot plot
+  plot <- DotPlot(dataset, features = cell_type_markers, group.by = "seurat_clusters") + 
+    ggtitle(paste("DotPlot for", dataset_name)) + 
+    RotatedAxis()
+  
+  # Save the plot as 'split_dotplot.png'
+  ggsave(filename = paste0(dataset_name, "_split_dotplot.png"),
+         plot = plot, width = 10, height = 6, dpi = 300)
+}
+
+
+```
+
+
+
+```{r}
+set.seed(2024)  # Set seed
+
+# Define the final cell type annotations based on the table
+bm1_cell_types <- list(
+  "6" = "Classical monocyte cell",
+  "9" = "Plasmacytoid dendritic cell",
+  "12" = "Dendritic cell",
+  "11" = "Dendritic cell",
+  "4" = "Naive B cell",
+  "3" = "CD16 natural killer cell",
+  "2" = "Megakaryocyte",
+  "10" = "Myeloid progenitor",
+  "1" = "Regulatory T cell",
+  "5" = "Mucosal-associated invariant T cell"
+)
+
+bm2_cell_types <- list(
+  "6" = "Classical monocyte cell",
+  "8" = "Plasmacytoid dendritic cell",
+  "11" = "Dendritic cell",
+  "10" = "Precursor B cell",
+  "2" = "Naive B cell",
+  "4" = "CD16 natural killer cell",
+  "3" = "Megakaryocyte",
+  "7" = "Myeloid progenitor",
+  "9" = "CD8 T cell",
+  "5" = "Mucosal-associated invariant T cell"
+)
+
+# Annotate the cell types in bm1_subset
+bm1_subset$cell_type <- NA  # Set NA for all cells initially
+for (cluster in names(bm1_cell_types)) {
+  bm1_subset$cell_type[bm1_subset$seurat_clusters == as.numeric(cluster)] <- bm1_cell_types[[cluster]]
+}
+
+# Annotate the cell types in bm2_subset
+bm2_subset$cell_type <- NA  # Set NA for all cells initially
+for (cluster in names(bm2_cell_types)) {
+  bm2_subset$cell_type[bm2_subset$seurat_clusters == as.numeric(cluster)] <- bm2_cell_types[[cluster]]
+}
+
+# Confirm the cell type annotation
+table(bm1_subset$cell_type)
+table(bm2_subset$cell_type)
+
+# Add NA to the full dataset for cells that are not in the subsets
+bm1$cell_type <- NA
+bm2$cell_type <- NA
+
+# Transfer the annotated labels from the subset to the full dataset
+bm1$cell_type[Cells(bm1_subset)] <- bm1_subset$cell_type
+bm2$cell_type[Cells(bm2_subset)] <- bm2_subset$cell_type
+
+# Confirm the cell type annotation
+table(bm1$cell_type)
+table(bm2$cell_type)
+
+# Save the annotated Seurat objects
+saveRDS(bm1, file = "bm1_annotated.rds")
+saveRDS(bm2, file = "bm2_annotated.rds")
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+
+```
+
+
+```{r}
+
+############## Part 2 #####################
+
+set.seed(2024)  # Set seed
+
+setwd("/Users/shatakshishewale/Desktop/Applications/interviews/Final project")  # Manually set the working directory
+
+# Verify it has been set correctly
+getwd()
+
+# Load the dataset
+pancreas <- readRDS("Pancreas.rds")
+
+# Check the structure of the object
+#print(pancreas)
+dim(pancreas)
+#summary(pancreas)
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+
+library(Seurat)
+
+pancreas <- CreateSeuratObject(
+    counts = pancreas, 
+    project = "Pancreas",
+    min.cells = 3,  # Removes genes detected in fewer than 3 cells
+    min.features = 200  # Cells with at least 200 genes detected
+)
+
+# Check Seurat object structure
+pancreas
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+# Add mitochondrial gene percentage
+pancreas[["percent.mt"]] <- PercentageFeatureSet(pancreas, pattern = "^MT-")
+
+
+# Visualize QC metrics
+VlnPlot(pancreas, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
+
+# Filter cells (adjust thresholds based on QC)
+pancreas <- subset(pancreas, subset = nFeature_RNA > 200 & nFeature_RNA < 6500 &  nCount_RNA < 100000)
+
+# Check dimensions after filtering
+dim(pancreas)
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+# run sctransform
+pancreas <- SCTransform(pancreas,vars.to.regress = "nCount_RNA", verbose = FALSE)
+
+# run PCA
+pancreas <- RunPCA(pancreas,  verbose = FALSE)
+
+ElbowPlot(pancreas, ndims = 50)
+
+# run UMAP
+pancreas <- RunUMAP(pancreas, dims = 1:20,  verbose = FALSE)
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+pancreas <- FindNeighbors(pancreas, dims = 1:25)
+
+pancreas <- FindClusters(pancreas, resolution = 0.8, algorithm = 4)
+
+DimPlot(pancreas, reduction = "umap", group.by = "seurat_clusters", label = TRUE)
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+library(ggplot2)
+
+# Define marker genes with Ensembl IDs for PP and Alpha cells
+pp_markers <- c("ENSG00000089199", "ENSG00000109472", "ENSG00000134138", "ENSG00000157168",
+                "ENSG00000102109", "ENSG00000108849", "ENSG00000176406", "ENSG00000171951",
+                "ENSG00000166922", "ENSG00000118271")
+
+alpha_markers <- c("ENSG00000100604", "ENSG00000089199", "ENSG00000109472", "ENSG00000115263",
+                   "ENSG00000185352", "ENSG00000102109", "ENSG00000125851", "ENSG00000166922",
+                   "ENSG00000118271", "ENSG00000128564")
+
+# Identify unique markers for each cell type
+unique_pp_markers <- setdiff(pp_markers, alpha_markers)
+unique_alpha_markers <- setdiff(alpha_markers, pp_markers)
+
+
+# DotPlot for PP cell markers (unique)
+DotPlot(pancreas, features = unique_pp_markers, group.by = "seurat_clusters") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("DotPlot of Unique PP Cell Markers")
+
+# DotPlot for Alpha cell markers (unique)
+DotPlot(pancreas, features = unique_alpha_markers, group.by = "seurat_clusters") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("DotPlot of Unique Alpha Cell Markers")
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+# subset cluster 7 and 9 and then re-cluster
+
+pancreas_subset <- subset(pancreas, idents = c(9, 7))
+pancreas_subset <- FindClusters(pancreas_subset, resolution = 0.5, algorithm = 4)  
+DimPlot(pancreas_subset, reduction = "umap", label = TRUE)
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+# DotPlot for PP cell markers (unique)
+DotPlot(pancreas_subset, features = unique_pp_markers, group.by = "seurat_clusters") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("DotPlot of Unique PP Cell Markers")
+
+# DotPlot for Alpha cell markers (unique)
+DotPlot(pancreas_subset, features = unique_alpha_markers, group.by = "seurat_clusters") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("DotPlot of Unique Alpha Cell Markers")
+
+```
+
+
+```{r}
+set.seed(2024)  # Set seed
+
+# Initialize cell_type column in pancreas object
+pancreas$cell_type <- NA  
+
+# Assign the same annotations from pancreas_subset to the full dataset
+pancreas$cell_type[pancreas$seurat_clusters == 3] <- "PP"
+pancreas$cell_type[pancreas$seurat_clusters == 1] <- "alpha"
+
+# Check the distribution of annotated cell types
+table(pancreas$cell_type)
+
+# Save the updated Seurat object for submission
+saveRDS(pancreas, file = "Pancreas_Annotated_Full.rds")
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+#Q5
+# Identify differentially expressed genes for cluster 1 (alpha cells)
+alpha_DEGs <- FindMarkers(pancreas_subset, ident.1 = 1, logfc.threshold = 0.25, min.pct = 0.1)
+alpha_DEGs <- alpha_DEGs[order(alpha_DEGs$avg_log2FC, decreasing = TRUE), ]  # Sort by log fold change
+
+# View the top markers
+head(alpha_DEGs, 10)
+
+# Identify differentially expressed genes for cluster 3 (PP cells)
+pp_DEGs <- FindMarkers(pancreas_subset, ident.1 = 3, logfc.threshold = 0.25, min.pct = 0.1)
+pp_DEGs <- pp_DEGs[order(pp_DEGs$avg_log2FC, decreasing = TRUE), ]  # Sort by log fold change
+
+# View the top markers
+head(pp_DEGs, 10)
+
+
+```
+
+```{r}
+set.seed(2024)  # Set seed
+
+
+```
