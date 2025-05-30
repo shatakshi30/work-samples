@@ -5,7 +5,7 @@ This repository contains a collection of my work samples, technical assessments,
 
 ## Contents
 
-#### 1. `shatakshi_shewale_evaluation.ipynb`
+#### 1. `shatakshi_evaluation.ipynb`
 
 - Implemented in Python using Jupyter Notebook
 - Covers tasks such as:
