@@ -28,6 +28,6 @@ This repository contains a collection of my work samples, technical assessments,
     - Perform sub-clustering to refine annotations
     - Identify new marker genes
 - Implemented in R using Seurat v5.0.3.
-- `NGS_Assessment results` folder includes all the all the results and answers to the questioned asked
+- `NGS_Assessment results` folder includes all the all the results(dotplots, excel sheets, annotated .rds objects) and answers to the questioned asked
 
 ---
